@@ -1,0 +1,37 @@
+{
+  "name": "easy-sso-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provider-agnostic SSO framework for Node.js",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@easy-sso/node",
+    "test": "npm run test --workspace=@easy-sso/node",
+    "test:coverage": "npm run test:coverage --workspace=@easy-sso/node",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspace=@easy-sso/node",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.9",
+    "@eslint/js": "^9.13.0",
+    "@types/node": "^20.16.0",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.11.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@10.8.2"
+}

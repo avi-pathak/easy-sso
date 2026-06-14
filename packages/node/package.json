@@ -1,0 +1,87 @@
+{
+  "name": "@easy-sso/node",
+  "version": "0.0.0",
+  "description": "Provider-agnostic SSO framework for Node.js, with Microsoft Entra ID as the first provider.",
+  "license": "MIT",
+  "author": "easy-sso contributors",
+  "homepage": "https://github.com/easy-sso/easy-sso#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/easy-sso/easy-sso.git",
+    "directory": "packages/node"
+  },
+  "bugs": {
+    "url": "https://github.com/easy-sso/easy-sso/issues"
+  },
+  "keywords": [
+    "sso",
+    "oauth2",
+    "oidc",
+    "jwt",
+    "jwks",
+    "authentication",
+    "authorization",
+    "microsoft",
+    "entra",
+    "azure-ad",
+    "express",
+    "middleware"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist coverage",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.4",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "peerDependencies": {
+    "express": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
