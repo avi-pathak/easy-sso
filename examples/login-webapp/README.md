@@ -1,17 +1,38 @@
-# Login with Microsoft — full-stack demo
+# Login with Microsoft / Google — full-stack demo
 
-A minimal server-side web app that signs a user in with Microsoft Entra ID and
-**validates the returned ID token with `@easy-sso/node`**. No frontend build, no
-SPA — just `express`, the OIDC authorization-code flow, and our package doing the
-token validation.
+A minimal server-side web app that signs a user in with **Microsoft Entra ID
+and/or Google** and **validates the returned ID token with `@easy-sso/node`**. No
+frontend build, no SPA — just `express`, the OIDC authorization-code flow, and our
+package doing the token validation.
+
+Each provider is **optional**: it's enabled when its client id + secret are set in
+`.env`, and the home page shows a button per enabled provider. Configure one or
+both.
 
 ```
-Browser ──/auth/login──▶ Microsoft sign-in
-        ◀──code──────── /auth/callback
-                         │  exchange code → id_token
-                         │  provider.authenticate(id_token)   ← @easy-sso/node
-                         ▼  session cookie → profile page
+Browser ──/auth/<p>/login──▶ provider sign-in        (p = microsoft | google)
+        ◀──code──────────── /auth/<p>/callback
+                             │  exchange code → id_token
+                             │  provider.authenticate(id_token)   ← @easy-sso/node
+                             ▼  session cookie → profile page
 ```
+
+> Routes: Microsoft uses `/auth/login` + `/auth/callback` (unchanged, so your
+> existing Entra redirect URI keeps working); Google uses `/auth/google/login` +
+> `/auth/google/callback`.
+
+## One-time Google setup
+
+1. **Google Cloud Console** → *APIs & Services* → *Credentials* → *Create
+   credentials* → **OAuth client ID** → type **Web application**.
+2. Under **Authorized redirect URIs**, add:
+
+   ```
+   http://localhost:7070/auth/google/callback
+   ```
+
+3. Copy the **Client ID** and **Client secret** into `.env` as `GOOGLE_CLIENT_ID`
+   / `GOOGLE_CLIENT_SECRET`.
 
 ## One-time Entra setup (your `New_Test_Easy_SSO` app)
 
@@ -36,13 +57,15 @@ npm install
 npm run build --workspace=@easy-sso/node
 
 cp examples/login-webapp/.env.example examples/login-webapp/.env
-#   then paste CLIENT_SECRET (and confirm CLIENT_ID) into the .env
+#   then fill in the providers you want: Microsoft (CLIENT_ID + CLIENT_SECRET)
+#   and/or Google (GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)
 
 npm run start --workspace=@easy-sso/example-login-webapp
 ```
 
-Open <http://localhost:7070>, click **Login with Microsoft**, sign in, and you'll
-land on a profile page rendered from the validated token claims.
+Open <http://localhost:7070>, click **Login with Microsoft** or **Login with
+Google**, sign in, and you'll land on a profile page rendered from the validated
+token claims (the `provider` field shows which one authenticated you).
 
 ## What each piece proves
 

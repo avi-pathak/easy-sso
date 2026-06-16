@@ -7,6 +7,7 @@ import (
 
 	"github.com/avi-pathak/easy-sso/packages/go/config"
 	"github.com/avi-pathak/easy-sso/packages/go/core"
+	"github.com/avi-pathak/easy-sso/packages/go/provider/google"
 	"github.com/avi-pathak/easy-sso/packages/go/provider/microsoft"
 	"github.com/avi-pathak/easy-sso/packages/go/ssoerr"
 )
@@ -90,6 +91,17 @@ func New(provider core.AuthProvider, opts Options) func(http.Handler) http.Handl
 // immediately on misconfiguration (fail-fast at startup).
 func Microsoft(cfg config.MicrosoftAuthConfig, opts Options) (func(http.Handler) http.Handler, error) {
 	p, err := microsoft.NewProvider(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return New(p, opts), nil
+}
+
+// Google is a convenience constructor for the Google provider middleware.
+// Construction validates the config and returns a ConfigurationError immediately
+// on misconfiguration (fail-fast at startup).
+func Google(cfg google.AuthConfig, opts Options) (func(http.Handler) http.Handler, error) {
+	p, err := google.NewProvider(cfg)
 	if err != nil {
 		return nil, err
 	}

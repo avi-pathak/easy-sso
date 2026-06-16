@@ -2,8 +2,8 @@
 
 A provider-agnostic Single Sign-On framework, available for **Node.js** and
 **Go**. The core knows only an `AuthProvider` interface; **Microsoft Entra ID**
-ships as the first provider, and Google / Okta / Auth0 / Keycloak plug in later
-with zero public-API changes.
+and **Google** ship as built-in providers, and Okta / Auth0 / Keycloak plug in
+later with zero public-API changes.
 
 ```ts
 // Node.js

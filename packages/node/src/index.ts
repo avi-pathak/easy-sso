@@ -49,6 +49,7 @@ export {
   requireRoles,
   defaultErrorHandler,
   toAuthError,
+  googleAuth,
 } from "./middleware/index.js";
 export type {
   AuthMiddlewareOptions,
@@ -76,6 +77,22 @@ export {
   PERSONAL_MSA_TENANT_ID,
 } from "./providers/microsoft/index.js";
 export type { MicrosoftJwksClientOptions } from "./providers/microsoft/index.js";
+
+// --- Google provider ---
+export {
+  GoogleProvider,
+  GoogleTokenValidator,
+  mapGoogleClaimsToUser,
+  validateGoogleConfig,
+  assertHostedDomainAllowed,
+  GOOGLE_ISSUERS,
+  DEFAULT_GOOGLE_JWKS_URI,
+} from "./providers/google/index.js";
+export type { GoogleAuthConfig, NormalizedGoogleConfig } from "./providers/google/index.js";
+
+// --- Shared JWKS client ---
+export { JwksClient } from "./jwks/jwks-client.js";
+export type { JwksClientOptions } from "./jwks/jwks-client.js";
 
 // --- Config ---
 export { validateMicrosoftConfig } from "./config/index.js";

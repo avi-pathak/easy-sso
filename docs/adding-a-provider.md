@@ -1,5 +1,11 @@
 # Adding a new provider
 
+> **Microsoft and Google now ship built-in** (`microsoftAuth` / `googleAuth` in
+> Node; `easysso.MicrosoftAuth` / `easysso.GoogleAuth` in Go). This guide remains
+> a worked walkthrough of how a provider is built against the `AuthProvider`
+> seam — use it as the template for the next one (Okta, Auth0, Keycloak, …). The
+> Google example below mirrors the real shipped implementation.
+
 The core never knows provider specifics. A provider is **anything that turns a
 raw token into a normalized `AuthUser`** — i.e. an implementation of the
 `AuthProvider` interface:

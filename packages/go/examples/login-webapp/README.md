@@ -1,30 +1,35 @@
-# Login with Microsoft — full-stack demo (Go)
+# Login with Microsoft / Google — full-stack demo (Go)
 
-A minimal server-side web app that signs a user in with Microsoft Entra ID and
-**validates the returned ID token with the easy-sso Go package**. No frontend
-build, no SPA — just `net/http`, the OIDC authorization-code flow, and
-`microsoft.Provider` doing the token validation.
+A minimal server-side web app that signs a user in with **Microsoft Entra ID
+and/or Google** and **validates the returned ID token with the easy-sso Go
+package**. No frontend build, no SPA — just `net/http`, the OIDC
+authorization-code flow, and the providers doing the token validation.
 
-This is the Go twin of [`examples/login-webapp`](../../../../examples/login-webapp)
-(Node). It reads the **same env var names**, so you can reuse the same `.env` and
-the same app registration / redirect URI.
+Each provider is **optional**: it's enabled when its client id + secret are set,
+and the home page shows a button per enabled provider. This is the Go twin of
+[`examples/login-webapp`](../../../../examples/login-webapp) (Node) and reads the
+**same env var names**, so you can reuse the same `.env` / app registrations.
 
 ```
-Browser ──/auth/login──▶ Microsoft sign-in
-        ◀──code──────── /auth/callback
-                         │  exchange code → id_token
-                         │  provider.Authenticate(id_token)   ← easy-sso (Go)
-                         ▼  session cookie → profile page
+Browser ──/auth/<p>/login──▶ provider sign-in        (p = microsoft | google)
+        ◀──code──────────── /auth/<p>/callback
+                             │  exchange code → id_token
+                             │  provider.Authenticate(id_token)   ← easy-sso (Go)
+                             ▼  session cookie → profile page
 ```
 
-## One-time Entra setup
+> Routes: Microsoft uses `/auth/login` + `/auth/callback`; Google uses
+> `/auth/google/login` + `/auth/google/callback`.
 
-Same as the Node demo — if you already did it, you're done. Otherwise:
+## One-time setup
 
-1. **Add the redirect URI** `http://localhost:7070/auth/callback` under
-   Portal → your app → **Manage → Authentication** → *Web* platform.
-2. **Create a client secret** under **Manage → Certificates & secrets** and copy
-   the **Value**.
+**Microsoft** — same as the Node demo; if done, you're set. Otherwise add the
+redirect URI `http://localhost:7070/auth/callback` under your app's *Web* platform
+and create a client secret.
+
+**Google** — in Google Cloud Console → *APIs & Services* → *Credentials*, create an
+**OAuth client ID** (Web application), add `http://localhost:7070/auth/google/callback`
+to **Authorized redirect URIs**, and copy the client ID + secret.
 
 ## Run
 
@@ -32,7 +37,7 @@ Same as the Node demo — if you already did it, you're done. Otherwise:
 cd packages/go/examples/login-webapp
 
 # Reuse the Node demo's .env automatically, or make a local one:
-cp .env.example .env        # then paste CLIENT_SECRET / confirm CLIENT_ID
+cp .env.example .env        # then fill in Microsoft and/or Google client id + secret
 
 go run .
 ```
@@ -40,8 +45,9 @@ go run .
 > If you already configured `examples/login-webapp/.env` (the Node demo), you can
 > skip the copy — this app falls back to loading that file.
 
-Open <http://localhost:7070>, click **Login with Microsoft**, sign in, and you'll
-land on a profile page rendered from the validated token claims.
+Open <http://localhost:7070>, click **Login with Microsoft** or **Login with
+Google**, sign in, and you'll land on a profile page rendered from the validated
+token claims (the `provider` field shows which one authenticated you).
 
 > The Node and Go demos both default to port **7070** and the same redirect URI,
 > so run one at a time.

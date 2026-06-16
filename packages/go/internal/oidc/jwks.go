@@ -1,4 +1,8 @@
-package microsoft
+// Package oidc holds the provider-neutral OIDC plumbing shared by concrete
+// providers: JWKS fetching/caching, JWT decoding, RS256 signature verification,
+// standard-claim validation, and claim-mapping helpers. It knows nothing about
+// any specific provider (Microsoft, Google, …).
+package oidc
 
 import (
 	"context"
@@ -12,9 +16,14 @@ import (
 	"time"
 
 	"github.com/avi-pathak/easy-sso/packages/go/cache"
-	"github.com/avi-pathak/easy-sso/packages/go/config"
 	"github.com/avi-pathak/easy-sso/packages/go/ssoerr"
 )
+
+// HTTPDoer is the minimal HTTP client interface the JWKS fetcher needs.
+// *http.Client satisfies it.
+type HTTPDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 type jwk struct {
 	Kty string `json:"kty"`
@@ -29,42 +38,42 @@ type jwksDoc struct {
 	Keys []jwk `json:"keys"`
 }
 
-// keySet maps a key id (kid) to a parsed RSA public key.
-type keySet map[string]*rsa.PublicKey
+// KeySet maps a key id (kid) to a parsed RSA public key.
+type KeySet map[string]*rsa.PublicKey
 
 // JWKSClientOptions configures a JWKSClient.
 type JWKSClientOptions struct {
-	JWKSURI         string
+	URI             string
 	TTL             time.Duration
 	RefreshInterval time.Duration
-	HTTPClient      config.HTTPClient
+	HTTPClient      HTTPDoer
 	Clock           cache.Clock
 }
 
-// JWKSClient fetches and caches the Microsoft JWKS as parsed RSA public keys.
-// Caching, single-flight dedup, TTL, and background refresh are delegated to the
-// generic MemoryKeyCache; this type only knows how to fetch and parse a JWKS.
+// JWKSClient fetches and caches a JWKS as parsed RSA public keys. Caching,
+// single-flight dedup, TTL, and background refresh are delegated to the generic
+// MemoryKeyCache; this type only knows how to fetch and parse a JWKS.
 type JWKSClient struct {
 	uri    string
-	cache  *cache.MemoryKeyCache[keySet]
-	client config.HTTPClient
+	cache  *cache.MemoryKeyCache[KeySet]
+	client HTTPDoer
 }
 
 // NewJWKSClient constructs a JWKSClient.
 func NewJWKSClient(opts JWKSClientOptions) *JWKSClient {
-	c := &JWKSClient{uri: opts.JWKSURI, client: opts.HTTPClient}
-	c.cache = cache.New[keySet](cache.Options[keySet]{
+	c := &JWKSClient{uri: opts.URI, client: opts.HTTPClient}
+	c.cache = cache.New[KeySet](cache.Options[KeySet]{
 		TTL:             opts.TTL,
 		RefreshInterval: opts.RefreshInterval,
 		Clock:           opts.Clock,
-		Loader: func(uri string) (keySet, error) {
+		Loader: func(uri string) (KeySet, error) {
 			return c.fetch(context.Background(), uri)
 		},
 	})
 	return c
 }
 
-func (c *JWKSClient) fetch(ctx context.Context, uri string) (keySet, error) {
+func (c *JWKSClient) fetch(ctx context.Context, uri string) (KeySet, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return nil, ssoerr.NewAuthenticationError("Failed to build the JWKS request", map[string]any{"uri": uri, "cause": err.Error()})
@@ -92,7 +101,7 @@ func (c *JWKSClient) fetch(ctx context.Context, uri string) (keySet, error) {
 		return nil, ssoerr.NewAuthenticationError("JWKS endpoint returned a malformed key set", map[string]any{"uri": uri})
 	}
 
-	set := make(keySet, len(doc.Keys))
+	set := make(KeySet, len(doc.Keys))
 	for _, k := range doc.Keys {
 		if k.Kty != "RSA" || k.Kid == "" {
 			continue

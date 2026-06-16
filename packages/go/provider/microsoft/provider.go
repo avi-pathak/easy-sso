@@ -5,6 +5,7 @@ import (
 
 	"github.com/avi-pathak/easy-sso/packages/go/config"
 	"github.com/avi-pathak/easy-sso/packages/go/core"
+	"github.com/avi-pathak/easy-sso/packages/go/internal/oidc"
 	"github.com/avi-pathak/easy-sso/packages/go/ssoerr"
 )
 
@@ -14,7 +15,7 @@ import (
 // never on this type — which is what lets other providers drop in later.
 type Provider struct {
 	cfg       config.NormalizedMicrosoftConfig
-	jwks      *JWKSClient
+	jwks      *oidc.JWKSClient
 	validator *TokenValidator
 }
 
@@ -32,8 +33,8 @@ func NewProvider(cfg config.MicrosoftAuthConfig) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	jwks := NewJWKSClient(JWKSClientOptions{
-		JWKSURI:         normalized.JWKSURI,
+	jwks := oidc.NewJWKSClient(oidc.JWKSClientOptions{
+		URI:             normalized.JWKSURI,
 		TTL:             normalized.JWKSTTL,
 		RefreshInterval: normalized.JWKSRefresh,
 		HTTPClient:      normalized.HTTPClient,

@@ -21,6 +21,7 @@ import (
 	"github.com/avi-pathak/easy-sso/packages/go/config"
 	"github.com/avi-pathak/easy-sso/packages/go/core"
 	"github.com/avi-pathak/easy-sso/packages/go/middleware"
+	"github.com/avi-pathak/easy-sso/packages/go/provider/google"
 	"github.com/avi-pathak/easy-sso/packages/go/provider/microsoft"
 	"github.com/avi-pathak/easy-sso/packages/go/ssoerr"
 )
@@ -50,6 +51,12 @@ type (
 // Microsoft provider.
 type MicrosoftProvider = microsoft.Provider
 
+// Google provider.
+type (
+	GoogleProvider   = google.Provider
+	GoogleAuthConfig = google.AuthConfig
+)
+
 // Middleware.
 type (
 	MiddlewareOptions = middleware.Options
@@ -61,10 +68,14 @@ type (
 var (
 	// NewMicrosoftProvider builds a Microsoft Entra ID provider.
 	NewMicrosoftProvider = microsoft.NewProvider
+	// NewGoogleProvider builds a Google provider.
+	NewGoogleProvider = google.NewProvider
 	// NewAuthMiddleware wraps any AuthProvider in net/http middleware.
 	NewAuthMiddleware = middleware.New
 	// MicrosoftAuth is a convenience that builds the Microsoft provider middleware.
 	MicrosoftAuth = middleware.Microsoft
+	// GoogleAuth is a convenience that builds the Google provider middleware.
+	GoogleAuth = middleware.Google
 
 	RequireAuth         = middleware.RequireAuth
 	RequireRole         = middleware.RequireRole

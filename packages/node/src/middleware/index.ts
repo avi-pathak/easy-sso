@@ -1,4 +1,4 @@
-export { createAuthMiddleware, microsoftAuth } from "./auth.js";
+export { createAuthMiddleware, microsoftAuth, googleAuth } from "./auth.js";
 export type { AuthMiddlewareOptions } from "./auth.js";
 export { requireAuth } from "./require-auth.js";
 export type { RequireAuthOptions } from "./require-auth.js";

@@ -75,7 +75,30 @@ and key rotation is picked up automatically.
 | `…/packages/go/cache` | Generic single-flight TTL cache + `Clock`. |
 | `…/packages/go/config` | `MicrosoftAuthConfig` + validation. |
 | `…/packages/go/provider/microsoft` | The Microsoft Entra ID provider. |
+| `…/packages/go/provider/google` | The Google (Sign in with Google) provider. |
 | `…/packages/go/middleware` | `net/http` middleware: auth, `RequireAuth`, `RequireRole(s)`. |
+
+## Google
+
+Google ships as a second built-in provider. It validates Google-issued OIDC ID
+tokens against Google's live JWKS, issuer `https://accounts.google.com`, and
+`aud = <your OAuth client id>`.
+
+```go
+auth, err := easysso.GoogleAuth(easysso.GoogleAuthConfig{
+    ClientID:      os.Getenv("GOOGLE_CLIENT_ID"),     // expected aud
+    HostedDomains: []string{"yourcompany.com"},        // optional: restrict to a Workspace domain (hd)
+}, easysso.MiddlewareOptions{})
+if err != nil {
+    log.Fatal(err)
+}
+mux.Handle("/me", easysso.RequireAuth(nil)(meHandler))
+http.ListenAndServe(":8080", auth(mux))
+```
+
+Google ID tokens carry no application roles, so `Roles` defaults to empty (map
+roles from your own store). The Workspace `hd` claim is surfaced as
+`AuthUser.TenantID`.
 
 ## API highlights
 

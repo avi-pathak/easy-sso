@@ -1,16 +1,17 @@
 // Command login-webapp is a minimal server-side web app that signs a user in
-// with Microsoft Entra ID and validates the returned ID token with the easy-sso
-// Go package. No frontend build — just net/http, the OIDC authorization-code
-// flow, and microsoft.Provider doing the token validation.
+// with Microsoft Entra ID and/or Google and validates the returned ID token with
+// the easy-sso Go package. No frontend build — just net/http, the OIDC
+// authorization-code flow, and the providers doing the token validation.
 //
-//	Browser ──/auth/login──▶ Microsoft sign-in
-//	        ◀──code──────── /auth/callback
-//	                         │  exchange code → id_token
-//	                         │  provider.Authenticate(id_token)   ← easy-sso
-//	                         ▼  session cookie → profile page
+//	Browser ──/auth/<p>/login──▶ provider sign-in
+//	        ◀──code──────────── /auth/<p>/callback
+//	                             │  exchange code → id_token
+//	                             │  provider.Authenticate(id_token)   ← easy-sso
+//	                             ▼  session cookie → profile page
 //
-// It reads the SAME env vars as the Node login-webapp demo, so you can reuse the
-// same .env / app registration:
+// Each provider is optional: it is enabled when its client id + secret are set.
+// Configure Microsoft, Google, or both. It reads the SAME env vars as the Node
+// login-webapp demo, so you can reuse the same .env / app registrations:
 //
 //	cd packages/go/examples/login-webapp
 //	go run .
@@ -34,55 +35,135 @@ import (
 
 	"github.com/avi-pathak/easy-sso/packages/go/config"
 	"github.com/avi-pathak/easy-sso/packages/go/core"
+	"github.com/avi-pathak/easy-sso/packages/go/provider/google"
 	"github.com/avi-pathak/easy-sso/packages/go/provider/microsoft"
 	"github.com/avi-pathak/easy-sso/packages/go/ssoerr"
 )
 
+// oauthFlow holds everything needed to drive one provider's authorization-code
+// flow and validate the resulting ID token.
+type oauthFlow struct {
+	name            string
+	label           string
+	loginPath       string
+	callbackPath    string
+	authorizeURL    string
+	tokenURL        string
+	clientID        string
+	clientSecret    string
+	redirectURI     string
+	scope           string
+	extraAuthParams map[string]string
+	validate        func(ctx context.Context, idToken string) (*core.AuthUser, error)
+}
+
 var (
-	clientID     string
-	clientSecret string
-	tenant       string
-	port         int
-	redirectURI  string
-	authority    string
-	provider     *microsoft.Provider
+	port       int
+	flows      []*oauthFlow
+	flowByName = map[string]*oauthFlow{}
 )
 
-const scope = "openid profile email"
-
 func main() {
-	// Load the same .env the Node demo uses (local copy first, then the Node
-	// example's file so a single configured .env serves both).
 	loadDotenv(os.Getenv("ENV_FILE"), "./.env", "../../../../examples/login-webapp/.env")
-
-	clientID = requireEnv("CLIENT_ID")
-	clientSecret = requireEnv("CLIENT_SECRET")
-	tenant = envOr("TENANT", "organizations")
 	port = atoiOr(os.Getenv("PORT"), 7070)
-	redirectURI = envOr("REDIRECT_URI", fmt.Sprintf("http://localhost:%d/auth/callback", port))
-	authority = "https://login.microsoftonline.com/" + tenant
 
-	// The whole point of the demo: easy-sso validates the ID token Microsoft
-	// returns from the code exchange (signature, issuer, audience, expiry, tenant).
-	p, err := microsoft.NewProvider(config.MicrosoftAuthConfig{
-		ClientID: clientID,
-		TenantID: tenant,
-	})
-	if err != nil {
+	if err := buildFlows(); err != nil {
 		log.Fatalf("provider setup: %v", err)
 	}
-	provider = p
+	if len(flows) == 0 {
+		log.Fatal("Configure at least one provider in .env: Microsoft (CLIENT_ID + CLIENT_SECRET) and/or Google (GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET). See .env.example.")
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleHome)
-	mux.HandleFunc("/auth/login", handleLogin)
-	mux.HandleFunc("/auth/callback", handleCallback)
 	mux.HandleFunc("/auth/logout", handleLogout)
 	mux.HandleFunc("/api/me", handleAPIMe)
+	// Login routes are per-provider (internal links — not registered with the IdP).
+	for _, f := range flows {
+		flow := f
+		mux.HandleFunc(flow.loginPath, func(w http.ResponseWriter, r *http.Request) { startLogin(flow, w, r) })
+	}
+	// Callback routes dispatch by the session-recorded provider, so two providers
+	// may share one redirect URI (e.g. both on /auth/callback).
+	seen := map[string]bool{}
+	for _, f := range flows {
+		if seen[f.callbackPath] {
+			continue
+		}
+		seen[f.callbackPath] = true
+		mux.HandleFunc(f.callbackPath, handleCallback)
+	}
 
+	labels := make([]string, len(flows))
+	for i, f := range flows {
+		labels[i] = f.label
+	}
 	log.Printf("▶ login demo on http://localhost:%d", port)
-	log.Printf("  tenant=%s  redirect_uri=%s", tenant, redirectURI)
+	log.Printf("  providers: %s", strings.Join(labels, ", "))
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), mux))
+}
+
+func buildFlows() error {
+	// Microsoft Entra ID
+	if clientID, secret := os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET"); clientID != "" && secret != "" {
+		tenant := envOr("TENANT", "organizations")
+		authority := "https://login.microsoftonline.com/" + tenant
+		p, err := microsoft.NewProvider(config.MicrosoftAuthConfig{ClientID: clientID, TenantID: tenant})
+		if err != nil {
+			return err
+		}
+		redirect := envOr("REDIRECT_URI", fmt.Sprintf("http://localhost:%d/auth/callback", port))
+		flows = append(flows, &oauthFlow{
+			name:            "microsoft",
+			label:           "Microsoft",
+			loginPath:       "/auth/login",
+			callbackPath:    callbackPathOf(redirect),
+			authorizeURL:    authority + "/oauth2/v2.0/authorize",
+			tokenURL:        authority + "/oauth2/v2.0/token",
+			clientID:        clientID,
+			clientSecret:    secret,
+			redirectURI:     redirect,
+			scope:           "openid profile email",
+			extraAuthParams: map[string]string{"response_mode": "query"},
+			validate:        func(ctx context.Context, t string) (*core.AuthUser, error) { return p.Authenticate(ctx, t, nil) },
+		})
+	}
+
+	// Google
+	if clientID, secret := os.Getenv("GOOGLE_CLIENT_ID"), os.Getenv("GOOGLE_CLIENT_SECRET"); clientID != "" && secret != "" {
+		p, err := google.NewProvider(google.AuthConfig{ClientID: clientID})
+		if err != nil {
+			return err
+		}
+		redirect := envOr("GOOGLE_REDIRECT_URI", fmt.Sprintf("http://localhost:%d/auth/callback", port))
+		flows = append(flows, &oauthFlow{
+			name:            "google",
+			label:           "Google",
+			loginPath:       "/auth/google/login",
+			callbackPath:    callbackPathOf(redirect),
+			authorizeURL:    "https://accounts.google.com/o/oauth2/v2/auth",
+			tokenURL:        "https://oauth2.googleapis.com/token",
+			clientID:        clientID,
+			clientSecret:    secret,
+			redirectURI:     redirect,
+			scope:           "openid email profile",
+			extraAuthParams: map[string]string{"access_type": "online", "prompt": "select_account"},
+			validate:        func(ctx context.Context, t string) (*core.AuthUser, error) { return p.Authenticate(ctx, t, nil) },
+		})
+	}
+	for _, f := range flows {
+		flowByName[f.name] = f
+	}
+	return nil
+}
+
+// callbackPathOf extracts the path from a redirect URI so the handler is
+// registered at exactly the path the IdP will redirect to.
+func callbackPathOf(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.Path != "" {
+		return u.Path
+	}
+	return "/auth/callback"
 }
 
 // --- Sessions (trivial in-memory store) -------------------------------------
@@ -90,6 +171,7 @@ func main() {
 type session struct {
 	state string
 	nonce string
+	flow  string
 	user  *core.AuthUser
 }
 
@@ -119,6 +201,10 @@ func getSession(w http.ResponseWriter, r *http.Request) *session {
 // --- Routes -----------------------------------------------------------------
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	s := getSession(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if s.user != nil {
@@ -128,25 +214,30 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Step 1: redirect the browser to Microsoft to sign in.
-func handleLogin(w http.ResponseWriter, r *http.Request) {
+// Step 1: redirect the browser to the provider to sign in.
+func startLogin(flow *oauthFlow, w http.ResponseWriter, r *http.Request) {
 	s := getSession(w, r)
 	s.state = randomHex(16)
 	s.nonce = randomHex(16)
+	s.flow = flow.name
 
 	q := url.Values{
-		"client_id":     {clientID},
+		"client_id":     {flow.clientID},
 		"response_type": {"code"},
-		"redirect_uri":  {redirectURI},
-		"response_mode": {"query"},
-		"scope":         {scope},
+		"redirect_uri":  {flow.redirectURI},
+		"scope":         {flow.scope},
 		"state":         {s.state},
 		"nonce":         {s.nonce},
 	}
-	http.Redirect(w, r, authority+"/oauth2/v2.0/authorize?"+q.Encode(), http.StatusFound)
+	for k, v := range flow.extraAuthParams {
+		q.Set(k, v)
+	}
+	http.Redirect(w, r, flow.authorizeURL+"?"+q.Encode(), http.StatusFound)
 }
 
-// Step 2: Microsoft redirects back with a code; exchange it and validate.
+// Step 2: the provider redirects back with a code; exchange it and validate. The
+// provider is resolved from the session (recorded at login), not the URL — so
+// providers can even share one redirect URI.
 func handleCallback(w http.ResponseWriter, r *http.Request) {
 	s := getSession(w, r)
 	q := r.URL.Query()
@@ -155,20 +246,21 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		renderError(w, fmt.Sprintf("%s: %s", e, q.Get("error_description")), http.StatusBadRequest)
 		return
 	}
+	flow := flowByName[s.flow]
 	code := q.Get("code")
-	if code == "" || q.Get("state") != s.state {
+	if flow == nil || code == "" || q.Get("state") != s.state {
 		renderError(w, "Invalid OAuth state or missing authorization code", http.StatusBadRequest)
 		return
 	}
 
-	idToken, err := exchangeCode(r.Context(), code)
+	idToken, err := exchangeCode(r.Context(), flow, code)
 	if err != nil {
 		renderError(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 
-	// *** easy-sso validates the ID token here. ***
-	user, err := provider.Authenticate(r.Context(), idToken, nil)
+	// *** easy-sso validates the ID token here (Microsoft or Google). ***
+	user, err := flow.validate(r.Context(), idToken)
 	if err != nil {
 		status := http.StatusInternalServerError
 		msg := err.Error()
@@ -187,7 +279,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.user = user
-	s.state, s.nonce = "", ""
+	s.state, s.nonce, s.flow = "", "", ""
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
@@ -216,16 +308,15 @@ func handleAPIMe(w http.ResponseWriter, r *http.Request) {
 
 // exchangeCode swaps the authorization code for tokens (confidential client) and
 // returns the id_token.
-func exchangeCode(ctx context.Context, code string) (string, error) {
+func exchangeCode(ctx context.Context, flow *oauthFlow, code string) (string, error) {
 	form := url.Values{
-		"client_id":     {clientID},
-		"client_secret": {clientSecret},
+		"client_id":     {flow.clientID},
+		"client_secret": {flow.clientSecret},
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
-		"redirect_uri":  {redirectURI},
-		"scope":         {scope},
+		"redirect_uri":  {flow.redirectURI},
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, authority+"/oauth2/v2.0/token", strings.NewReader(form.Encode()))
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, flow.tokenURL, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -252,14 +343,6 @@ func exchangeCode(ctx context.Context, code string) (string, error) {
 
 // --- env helpers ------------------------------------------------------------
 
-func requireEnv(name string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		log.Fatalf("Missing required env var %s — see .env.example", name)
-	}
-	return v
-}
-
 func envOr(name, def string) string {
 	if v := os.Getenv(name); v != "" {
 		return v
@@ -285,23 +368,29 @@ func randomHex(n int) string {
 func pageShell(body string) string {
 	return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>easy-sso · Login with Microsoft</title>
+<title>easy-sso · Login</title>
 <style>
   body{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:64px auto;padding:0 20px;color:#1b1b1f}
   .card{border:1px solid #e3e3e8;border-radius:12px;padding:28px}
-  .btn{display:inline-block;background:#2f2f31;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600}
-  .btn.ms{background:#2563eb}
+  .btn{display:inline-block;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;margin:6px 8px 6px 0}
+  .btn.microsoft{background:#2563eb}
+  .btn.google{background:#1a73e8}
   pre{background:#f5f5f7;border-radius:8px;padding:16px;overflow:auto;font-size:13px}
   .muted{color:#6b6b70}
   a.link{color:#2563eb}
+  .tag{display:inline-block;background:#eef;border-radius:6px;padding:2px 8px;font-size:13px}
 </style></head><body>` + body + `</body></html>`
 }
 
 func loginPage() string {
+	var buttons strings.Builder
+	for _, f := range flows {
+		buttons.WriteString(`<a class="btn ` + f.name + `" href="` + f.loginPath + `">Login with ` + f.label + `</a>`)
+	}
 	return pageShell(`<div class="card">
     <h1>Sign in</h1>
-    <p class="muted">This page is protected. Authenticate with your Microsoft work or school account.</p>
-    <p><a class="btn ms" href="/auth/login">Login with Microsoft</a></p>
+    <p class="muted">This page is protected. Choose a provider — the returned ID token is validated by the easy-sso Go package.</p>
+    <p>` + buttons.String() + `</p>
   </div>`)
 }
 
@@ -310,11 +399,11 @@ func profilePage(u *core.AuthUser) string {
 	display := firstNonEmpty(u.Name, u.Email, u.ID)
 	return pageShell(`<div class="card">
     <h1>Hello, ` + html.EscapeString(display) + ` 👋</h1>
-    <p class="muted">Your ID token was validated by the easy-sso Go package.</p>
+    <p class="muted">Signed in via <span class="tag">` + html.EscapeString(u.Provider) + `</span> — validated by the easy-sso Go package.</p>
     <ul>
       <li><strong>id:</strong> ` + html.EscapeString(u.ID) + `</li>
       <li><strong>email:</strong> ` + html.EscapeString(orDash(u.Email)) + `</li>
-      <li><strong>tenant:</strong> ` + html.EscapeString(orDash(u.TenantID)) + `</li>
+      <li><strong>tenant / hd:</strong> ` + html.EscapeString(orDash(u.TenantID)) + `</li>
       <li><strong>roles:</strong> ` + html.EscapeString(orDash(strings.Join(u.Roles, ", "))) + `</li>
     </ul>
     <p><a class="link" href="/api/me">/api/me (JSON)</a> · <a class="link" href="/auth/logout">Logout</a></p>

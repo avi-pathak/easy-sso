@@ -4,6 +4,8 @@ import { MissingTokenError } from "../errors/index.js";
 import { extractBearerToken } from "../utils/bearer.js";
 import { type MicrosoftAuthConfig } from "../config/types.js";
 import { MicrosoftProvider } from "../providers/microsoft/microsoft-provider.js";
+import { GoogleProvider } from "../providers/google/google-provider.js";
+import { type GoogleAuthConfig } from "../providers/google/config.js";
 import { defaultErrorHandler, toAuthError } from "./respond.js";
 import { type AuthAwareRequest, type AuthErrorHandler, type RequestHandler } from "./types.js";
 
@@ -83,5 +85,24 @@ export function microsoftAuth(
   options?: AuthMiddlewareOptions,
 ): RequestHandler {
   const provider = new MicrosoftProvider(config);
+  return createAuthMiddleware(provider, options);
+}
+
+/**
+ * Convenience factory for the Google provider.
+ *
+ * ```ts
+ * app.use(googleAuth({ clientId: process.env.GOOGLE_CLIENT_ID }));
+ * ```
+ *
+ * Equivalent to `createAuthMiddleware(new GoogleProvider(config), options)`.
+ * Construction validates the config and throws a descriptive `ConfigurationError`
+ * immediately on misconfiguration (fail-fast at startup).
+ */
+export function googleAuth(
+  config: GoogleAuthConfig,
+  options?: AuthMiddlewareOptions,
+): RequestHandler {
+  const provider = new GoogleProvider(config);
   return createAuthMiddleware(provider, options);
 }
