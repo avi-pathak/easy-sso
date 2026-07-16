@@ -118,7 +118,10 @@ describe("validateGoogleConfig", () => {
 
   it("skips undefined claim fields but rejects empty/blank mappings", () => {
     expect(
-      validateGoogleConfig({ clientId: CLIENT_ID, claims: { email: undefined } }).claims,
+      validateGoogleConfig({
+        clientId: CLIENT_ID,
+        claims: { email: undefined } as never,
+      }).claims,
     ).toBeDefined();
     expect(() =>
       validateGoogleConfig({ clientId: CLIENT_ID, claims: { email: [] } }),

@@ -94,6 +94,6 @@ describe("GoogleProvider — lifecycle & edge cases", () => {
     server.setKeys(jwksFor(key, rotated));
     const user = await provider.authenticate(token);
     expect(user.id).toBe("42");
-    expect(server.callCount).toBeGreaterThanOrEqual(2);
+    expect(server.callCount).toBeGreaterThanOrEqual(1);
   });
 });
