@@ -11,7 +11,7 @@ releases work.
 ## Setup
 
 ```bash
-git clone https://github.com/easy-sso/easy-sso.git
+git clone https://github.com/avi-pathak/easy-sso.git
 cd easy-sso
 npm install
 npm run build

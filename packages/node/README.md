@@ -3,7 +3,7 @@
 > Provider-agnostic SSO for Node.js. Microsoft Entra ID today; Google, Okta,
 > Auth0, Keycloak tomorrow — with zero public-API changes.
 
-[![CI](https://github.com/easy-sso/easy-sso/actions/workflows/ci.yml/badge.svg)](https://github.com/easy-sso/easy-sso/actions/workflows/ci.yml)
+[![CI](https://github.com/avi-pathak/easy-sso/actions/workflows/ci.yml/badge.svg)](https://github.com/avi-pathak/easy-sso/actions/workflows/ci.yml)
 
 `@easy-sso/node` validates OAuth2 / OIDC bearer tokens and gives your routes a
 typed, normalized user — without tying your codebase to any one identity

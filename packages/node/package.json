@@ -4,14 +4,14 @@
   "description": "Provider-agnostic SSO framework for Node.js, with Microsoft Entra ID as the first provider.",
   "license": "MIT",
   "author": "easy-sso contributors",
-  "homepage": "https://github.com/easy-sso/easy-sso#readme",
+  "homepage": "https://github.com/avi-pathak/easy-sso#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/easy-sso/easy-sso.git",
+    "url": "git+https://github.com/avi-pathak/easy-sso.git",
     "directory": "packages/node"
   },
   "bugs": {
-    "url": "https://github.com/easy-sso/easy-sso/issues"
+    "url": "https://github.com/avi-pathak/easy-sso/issues"
   },
   "keywords": [
     "sso",
