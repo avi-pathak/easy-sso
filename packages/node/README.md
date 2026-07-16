@@ -10,6 +10,9 @@ typed, normalized user — without tying your codebase to any one identity
 provider. The core knows only an `AuthProvider` interface; Microsoft Entra ID is
 the first concrete implementation.
 
+**Docs:** [Getting started](./docs/getting-started.md) ·
+[Adding a provider](./docs/adding-a-provider.md)
+
 ```ts
 import { microsoftAuth, requireAuth, requireRole } from "@easy-sso/node";
 
@@ -224,8 +227,8 @@ interface AuthUser {
 
 ## Adding a provider
 
-See [docs/adding-a-provider.md](../../docs/adding-a-provider.md) for a worked
-Google example against the same `AuthProvider` interface.
+See [docs/adding-a-provider.md](./docs/adding-a-provider.md) for a worked
+example against the same `AuthProvider` interface.
 
 ## License
 

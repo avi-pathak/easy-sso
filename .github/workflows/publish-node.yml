@@ -1,0 +1,70 @@
+name: Publish @easy-sso/node
+
+# Explicit publish pipeline for the npm package. Complements the Changesets
+# flow in release.yml — use this to cut a release directly from a version tag
+# (e.g. `node-v1.2.3`) or by manual dispatch.
+#
+# Prerequisite: repo secret NPM_TOKEN — an npm automation token with publish
+# rights on the @easy-sso scope.
+
+on:
+  push:
+    tags:
+      - "node-v*"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Run through build/test and `npm publish --dry-run` without publishing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+concurrency:
+  group: publish-node-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: build · test · publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish (dry run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        run: npm publish --dry-run --provenance --access public
+        working-directory: packages/node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry-run) }}
+        run: npm publish --provenance --access public
+        working-directory: packages/node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
