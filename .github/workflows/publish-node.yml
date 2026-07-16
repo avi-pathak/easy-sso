@@ -43,6 +43,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Build
+        run: npm run build
+
       - name: Lint
         run: npm run lint
 
@@ -51,9 +54,6 @@ jobs:
 
       - name: Test
         run: npm run test
-
-      - name: Build
-        run: npm run build
 
       - name: Publish (dry run)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
