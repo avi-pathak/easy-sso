@@ -1,5 +1,15 @@
 # @easy-sso/node
 
+## 0.1.0
+
+### Minor Changes
+
+- 02ec19b: Initial release of `@easy-sso/node`: a provider-agnostic SSO framework for Node.js
+  with Microsoft Entra ID as the first provider. Includes JWKS caching with
+  single-flight protection, full token validation (signature, issuer, audience,
+  exp, nbf, token version), Express middleware (`requireAuth`, `requireRole`,
+  `requireRoles`), config-driven claim mapping, and fail-fast config validation.
+
 All notable changes to this package are documented here. This file is maintained
 by [Changesets](https://github.com/changesets/changesets); entries below the
 "Unreleased" heading are generated at release time.

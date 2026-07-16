@@ -1,6 +1,6 @@
 {
   "name": "@easy-sso/node",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Provider-agnostic SSO framework for Node.js, with Microsoft Entra ID as the first provider.",
   "license": "MIT",
   "author": "easy-sso contributors",
